@@ -1,9 +1,10 @@
+﻿import os
 from pymongo import MongoClient
 from datetime import datetime
 
 
 def main():
-    client = MongoClient("mongodb://localhost:27017/", serverSelectionTimeoutMS=2000)
+    client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017/"), serverSelectionTimeoutMS=2000)
 
     db = client["hello_db"]
     coll = db["hello_collection"]

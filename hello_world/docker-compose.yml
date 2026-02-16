@@ -1,0 +1,27 @@
+services:
+  db:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+
+  mongo-express:
+    image: mongo-express:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      - ME_CONFIG_MONGODB_URL=mongodb://db:27017/
+    ports:
+      - "127.0.0.1:8081:8081"
+
+  app:
+    build: .
+    depends_on:
+      - db
+    environment:
+      - MONGO_URI=mongodb://db:27017/
+    command: ["python", "main.py"]
+
+volumes:
+  mongo_data:
