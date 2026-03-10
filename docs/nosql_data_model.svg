@@ -1,0 +1,81 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1860" height="1180" viewBox="0 0 1860 1180">
+  <style>
+    .title { font: 700 30px Arial, sans-serif; fill: #0f172a; }
+    .box { fill: #f8fafc; stroke: #0f172a; stroke-width: 2; rx: 18; ry: 18; }
+    .head { fill: #dbeafe; stroke: #2563eb; stroke-width: 2; rx: 18; ry: 18; }
+    .headText { font: 700 24px Arial, sans-serif; fill: #0f172a; }
+    .small { font: 16px Arial, sans-serif; fill: #111827; }
+    .label { font: 16px Arial, sans-serif; fill: #1e293b; }
+    .arrow { stroke: #475569; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 Z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <text x="60" y="56" class="title">Нереляционная модель данных</text>
+
+  <rect x="60" y="120" width="380" height="620" class="box"/>
+  <rect x="60" y="120" width="380" height="64" class="head"/>
+  <text x="90" y="161" class="headText">Коллекция logs</text>
+  <text x="90" y="222" class="small">_id : ObjectId</text>
+  <text x="90" y="250" class="small">import_batch_id : ObjectId</text>
+  <text x="90" y="278" class="small">log_type : string</text>
+  <text x="90" y="306" class="small">source.file_name : string</text>
+  <text x="90" y="334" class="small">source.uploaded_at : Date</text>
+  <text x="90" y="362" class="small">raw : string</text>
+  <text x="90" y="390" class="small">timestamp : Date</text>
+  <text x="90" y="418" class="small">parsed.ip : string</text>
+  <text x="90" y="446" class="small">parsed.method : string</text>
+  <text x="90" y="474" class="small">parsed.uri : string</text>
+  <text x="90" y="502" class="small">parsed.status : int</text>
+  <text x="90" y="530" class="small">parsed.user_agent : string</text>
+  <text x="90" y="558" class="small">parsed.level : string</text>
+  <text x="90" y="586" class="small">parsed.message : string</text>
+  <text x="90" y="614" class="small">normalized.uri_template : string</text>
+  <text x="90" y="642" class="small">normalized.message_template : string</text>
+  <text x="90" y="670" class="small">normalized.signature : string</text>
+  <text x="90" y="698" class="small">normalized.ip_prefix : string</text>
+
+  <rect x="760" y="120" width="430" height="290" class="box"/>
+  <rect x="760" y="120" width="430" height="64" class="head"/>
+  <text x="790" y="161" class="headText">Коллекция cluster_runs</text>
+  <text x="790" y="222" class="small">_id : ObjectId</text>
+  <text x="790" y="250" class="small">created_at : Date</text>
+  <text x="790" y="278" class="small">method : string</text>
+  <text x="790" y="306" class="small">filters : object</text>
+  <text x="790" y="334" class="small">summary.logs_total : int</text>
+  <text x="790" y="362" class="small">summary.clusters_total : int</text>
+
+  <rect x="760" y="560" width="430" height="330" class="box"/>
+  <rect x="760" y="560" width="430" height="64" class="head"/>
+  <text x="790" y="601" class="headText">Коллекция clusters</text>
+  <text x="790" y="662" class="small">_id : ObjectId</text>
+  <text x="790" y="690" class="small">run_id : ObjectId</text>
+  <text x="790" y="718" class="small">cluster_key : string</text>
+  <text x="790" y="746" class="small">size : int</text>
+  <text x="790" y="774" class="small">stats.top_ips : array</text>
+  <text x="790" y="802" class="small">stats.min_timestamp : Date</text>
+  <text x="790" y="830" class="small">stats.max_timestamp : Date</text>
+  <text x="790" y="858" class="small">samples : array&lt;object&gt;</text>
+
+  <path d="M440 280 C560 280, 610 250, 760 250" class="arrow"/>
+  <text x="560" y="232" class="label">фильтрация</text>
+  <text x="560" y="254" class="label">логов</text>
+
+  <path d="M440 560 C560 560, 610 650, 760 700" class="arrow"/>
+  <text x="535" y="706" class="label">группировка</text>
+  <text x="535" y="728" class="label">логов</text>
+
+  <path d="M975 410 L975 560" class="arrow"/>
+  <text x="1005" y="470" class="label">один запуск</text>
+  <text x="1005" y="492" class="label">много</text>
+  <text x="1005" y="514" class="label">кластеров</text>
+</svg>
+
+
+
+
+
+
