@@ -17,6 +17,8 @@
     </marker>
   </defs>
 
+  <rect x="0" y="0" width="1880" height="1100" fill="#ffffff"/>
+
   <text x="60" y="56" class="title">Реляционная модель данных</text>
 
   <rect x="60" y="150" width="360" height="250" class="box"/>
@@ -94,3 +96,6 @@
   <text x="1010" y="848" class="label">cluster_logs</text>
 
 </svg>
+
+
+
