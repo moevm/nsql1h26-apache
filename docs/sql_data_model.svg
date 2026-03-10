@@ -1,0 +1,96 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1880" height="1100" viewBox="0 0 1880 1100">
+  <style>
+    .title { font: 700 30px Arial, sans-serif; fill: #0f172a; }
+    .subtitle { font: 16px Arial, sans-serif; fill: #334155; }
+    .box { fill: #f8fafc; stroke: #0f172a; stroke-width: 2; rx: 18; ry: 18; }
+    .head { fill: #fee2e2; stroke: #dc2626; stroke-width: 2; rx: 18; ry: 18; }
+    .headText { font: 700 24px Arial, sans-serif; fill: #0f172a; }
+    .text { font: 18px Arial, sans-serif; fill: #111827; }
+    .small { font: 16px Arial, sans-serif; fill: #111827; }
+    .muted { font: 15px Arial, sans-serif; fill: #475569; }
+    .arrow { stroke: #475569; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    .label { font: 16px Arial, sans-serif; fill: #1e293b; }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 Z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <text x="60" y="56" class="title">Реляционная модель данных</text>
+
+  <rect x="60" y="150" width="360" height="250" class="box"/>
+  <rect x="60" y="150" width="360" height="64" class="head"/>
+  <text x="90" y="191" class="headText">Таблица import_batches</text>
+  <text x="90" y="246" class="small">id : BIGINT PK</text>
+  <text x="90" y="278" class="small">file_name : VARCHAR</text>
+  <text x="90" y="310" class="small">log_type : VARCHAR</text>
+  <text x="90" y="342" class="small">uploaded_at : TIMESTAMP</text>
+
+  <rect x="560" y="120" width="500" height="560" class="box"/>
+  <rect x="560" y="120" width="500" height="64" class="head"/>
+  <text x="590" y="161" class="headText">Таблица logs</text>
+  <text x="590" y="230" class="small">id : BIGINT PK</text>
+  <text x="590" y="258" class="small">batch_id : BIGINT FK</text>
+  <text x="590" y="286" class="small">log_type : VARCHAR</text>
+  <text x="590" y="314" class="small">timestamp : TIMESTAMP</text>
+  <text x="590" y="342" class="small">raw_text : TEXT</text>
+  <text x="590" y="370" class="small">ip : VARCHAR</text>
+  <text x="590" y="398" class="small">method : VARCHAR</text>
+  <text x="590" y="426" class="small">uri : TEXT</text>
+  <text x="590" y="454" class="small">status_code : INT</text>
+  <text x="590" y="482" class="small">user_agent : TEXT</text>
+  <text x="590" y="510" class="small">level : VARCHAR</text>
+  <text x="590" y="538" class="small">message : TEXT</text>
+  <text x="590" y="566" class="small">uri_template : TEXT</text>
+  <text x="590" y="594" class="small">message_template : TEXT</text>
+  <text x="590" y="622" class="small">signature : VARCHAR</text>
+
+  <rect x="1180" y="120" width="380" height="270" class="box"/>
+  <rect x="1180" y="120" width="380" height="64" class="head"/>
+  <text x="1210" y="161" class="headText">Таблица cluster_runs</text>
+  <text x="1210" y="216" class="small">id : BIGINT PK</text>
+  <text x="1210" y="244" class="small">method : VARCHAR</text>
+  <text x="1210" y="272" class="small">filters_json : JSON</text>
+  <text x="1210" y="300" class="small">created_at : TIMESTAMP</text>
+  <text x="1210" y="328" class="small">logs_total : INT</text>
+  <text x="1210" y="356" class="small">clusters_total : INT</text>
+
+  <rect x="1180" y="520" width="380" height="250" class="box"/>
+  <rect x="1180" y="520" width="380" height="64" class="head"/>
+  <text x="1210" y="561" class="headText">Таблица clusters</text>
+  <text x="1210" y="616" class="small">id : BIGINT PK</text>
+  <text x="1210" y="644" class="small">run_id : BIGINT FK</text>
+  <text x="1210" y="672" class="small">cluster_key : VARCHAR</text>
+  <text x="1210" y="700" class="small">size : INT</text>
+
+  <rect x="1180" y="860" width="380" height="190" class="box"/>
+  <rect x="1180" y="860" width="380" height="64" class="head"/>
+  <text x="1210" y="901" class="headText">Таблица cluster_logs</text>
+  <text x="1210" y="956" class="small">cluster_id : BIGINT FK</text>
+  <text x="1210" y="984" class="small">log_id : BIGINT FK</text>
+
+  <path d="M420 260 L560 260" class="arrow"/>
+  <text x="438" y="176" class="label">один пакет</text>
+  <text x="438" y="198" class="label">импорта</text>
+  <text x="438" y="220" class="label">много</text>
+  <text x="438" y="242" class="label">логов</text>
+
+  <path d="M1370 390 L1370 520" class="arrow"/>
+  <text x="1398" y="434" class="label">один запуск</text>
+  <text x="1398" y="456" class="label">много</text>
+  <text x="1398" y="478" class="label">кластеров</text>
+
+  <path d="M1370 770 L1370 860" class="arrow"/>
+  <text x="1398" y="802" class="label">один кластер</text>
+  <text x="1398" y="824" class="label">много</text>
+  <text x="1398" y="846" class="label">связей</text>
+
+  <path d="M1060 620 C1110 650, 1125 900, 1180 940" class="arrow"/>
+  <text x="1010" y="760" class="label">логи и</text>
+  <text x="1010" y="782" class="label">кластеры</text>
+  <text x="1010" y="804" class="label">связь M:N</text>
+  <text x="1010" y="826" class="label">через</text>
+  <text x="1010" y="848" class="label">cluster_logs</text>
+
+</svg>
