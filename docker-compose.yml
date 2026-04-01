@@ -1,0 +1,36 @@
+services:
+  db:
+    image: mongo:7.0.17
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: apache_logs
+    volumes:
+      - mongo_data:/data/db
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      MONGO_URI: mongodb://db:27017
+      MONGO_DB_NAME: apache_logs
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://db:27017/
+    ports:
+      - "127.0.0.1:8081:8081"
+
+volumes:
+  mongo_data:

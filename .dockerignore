@@ -1,0 +1,8 @@
+.git
+.github
+.wiki_tmp
+docs
+generated_logs
+hello_world
+__pycache__
+*.pyc
