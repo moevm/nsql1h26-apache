@@ -1,24 +1,38 @@
 from __future__ import annotations
 
-from pymongo import MongoClient
-from pymongo.errors import PyMongoError
+from functools import lru_cache
+
+from pymongo import ASCENDING, DESCENDING, MongoClient
+from pymongo.database import Database
 
 from app.config import settings
 
 
+@lru_cache(maxsize=1)
 def get_client() -> MongoClient:
-    return MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=2000)
+    return MongoClient(settings.mongodb_url, serverSelectionTimeoutMS=5000, tz_aware=True)
 
 
-def get_database():
-    return get_client()[settings.mongo_db_name]
+@lru_cache(maxsize=1)
+def get_database() -> Database:
+    return get_client()[settings.db_name]
+
+
+def init_database() -> None:
+    db = get_database()
+    logs = db["logs"]
+    logs.create_index([("log_type", ASCENDING), ("timestamp", DESCENDING)], name="idx_logs_type_timestamp")
+    logs.create_index([("parsed.status", ASCENDING)], name="idx_logs_status")
+    logs.create_index([("parsed.method", ASCENDING)], name="idx_logs_method")
+    logs.create_index([("import_batch_id", ASCENDING)], name="idx_logs_import_batch")
 
 
 def ping() -> bool:
-    try:
-        client = get_client()
-        client.admin.command("ping")
-        return True
-    except PyMongoError:
-        return False
+    get_client().admin.command("ping")
+    return True
 
+
+def close_mongo_connection() -> None:
+    get_client().close()
+    get_client.cache_clear()
+    get_database.cache_clear()

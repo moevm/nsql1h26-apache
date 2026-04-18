@@ -3,7 +3,7 @@ services:
     image: mongo:7.0.17
     restart: unless-stopped
     environment:
-      MONGO_INITDB_DATABASE: apache_logs
+      MONGO_INITDB_DATABASE: log_clustering
     volumes:
       - mongo_data:/data/db
 
@@ -17,8 +17,8 @@ services:
     environment:
       APP_HOST: 0.0.0.0
       APP_PORT: 8000
-      MONGO_URI: mongodb://db:27017
-      MONGO_DB_NAME: apache_logs
+      MONGODB_URL: mongodb://db:27017
+      DB_NAME: log_clustering
     ports:
       - "127.0.0.1:8000:8000"
 
@@ -28,7 +28,7 @@ services:
     depends_on:
       - db
     environment:
-      ME_CONFIG_MONGODB_URL: mongodb://db:27017/
+      ME_CONFIG_MONGODB_URL: mongodb://db:27017/log_clustering
     ports:
       - "127.0.0.1:8081:8081"
 
