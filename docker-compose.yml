@@ -1,5 +1,6 @@
 services:
   db:
+    container_name: nsql-apache-db
     image: mongo:7.0.17
     restart: unless-stopped
     environment:
@@ -8,6 +9,7 @@ services:
       - mongo_data:/data/db
 
   app:
+    container_name: nsql-apache-app
     build:
       context: .
       dockerfile: Dockerfile
@@ -23,6 +25,7 @@ services:
       - "127.0.0.1:8000:8000"
 
   mongo-express:
+    container_name: nsql-apache-mongo-express
     image: mongo-express:1.0.2
     restart: unless-stopped
     depends_on:
