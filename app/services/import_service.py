@@ -34,7 +34,7 @@ class ImportService:
         batch: list[dict[str, Any]] = []
 
         upload_file.file.seek(0)
-        text_stream = TextIOWrapper(upload_file.file, encoding="utf-8", errors="replace")
+        text_stream = TextIOWrapper(upload_file.file, encoding="utf-8-sig", errors="replace")
         try:
             for line in text_stream:
                 raw_line = line.rstrip("\r\n")

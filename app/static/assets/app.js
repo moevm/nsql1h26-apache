@@ -346,7 +346,7 @@ function bindGlobal() {
       } else {
         const payload = await exportLogsFromApi({ limit: 1000, offset: 0 });
         downloadJson("apache_logs_export.json", payload);
-        toast("Экспорт сформирован");
+        toast("Экспорт логов сформирован");
       }
       closeModal("#exportModal");
     } catch (error) {
@@ -739,7 +739,7 @@ function initLogsPage() {
   window.__exportCurrentLogs = async () => {
     const payload = currentFilteredLogs.map((log) => log.original);
     downloadJson("apache_logs_export.json", payload);
-    toast("Экспорт сформирован");
+    toast("Экспорт логов сформирован");
   };
 
   typeSelect?.addEventListener("change", async (e) => {
