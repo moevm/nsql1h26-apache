@@ -1,0 +1,190 @@
+
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Apache Logs UI</title>
+  <link rel="stylesheet" href="assets/style.css"/>
+</head>
+
+<body data-page="logs">
+  <div class="shell">
+    <div class="app">
+      <div class="topbar">
+        <div class="brand">
+          <div>Apache Logs</div>
+        </div>
+      </div>
+
+      <div class="layout">
+        <aside class="sidebar">
+          <div class="nav">
+            <a href="index.html" data-nav="home">Главная</a>
+            <a href="logs.html" data-nav="logs">Логи</a>
+            <a href="clustering.html" data-nav="clustering">Кластеризация</a>
+            <a href="runs.html" data-nav="runs">Запуски</a>
+          </div>
+        </aside>
+
+        <main class="main">
+          
+
+<div class="card">
+  <h1 class="h1">Логи</h1>
+
+  <div class="row" style="margin-top:10px">
+    <input class="input inline" id="periodInput" placeholder="Период: YYYY-MM-DD … YYYY-MM-DD" />
+  </div>
+
+
+  <div class="grid3" style="margin-top:10px">
+    <div>
+      <div class="muted small" style="margin-bottom:6px">Type</div>
+      <select class="select" id="typeSelect">
+        <option value="all">all</option>
+        <option value="access">access</option>
+        <option value="error">error</option>
+      </select>
+    </div>
+    <div>
+      <div class="muted small" style="margin-bottom:6px">Result</div>
+      <select class="select" id="resultSelect">
+        <option value="all">all</option>
+        <option value="success">success</option>
+        <option value="failed">failed</option>
+      </select>
+    </div>
+    <div>
+      <div class="muted small" style="margin-bottom:6px">Status</div>
+      <select class="select" id="statusSelect">
+        <option value="all">all</option>
+        <option value="2xx">2xx</option>
+        <option value="3xx">3xx</option>
+        <option value="4xx">4xx</option>
+        <option value="5xx">5xx</option>
+        <option value="4xx5xx">4xx/5xx</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <input class="input inline" id="ipInput" placeholder="IP: например 10.0.0.*" />
+    <button class="btn" id="resetFilters" type="button">Сбросить</button>
+  </div>
+
+  <div class="chips" id="chips" style="margin-top:10px"></div>
+
+  <div style="margin-top:10px">
+    <input class="input" id="searchInput" placeholder="Поиск: message/uri (по подстроке)" />
+  </div>
+
+  <div class="gridLogs" style="margin-top:12px">
+    <div>
+      <table class="table">
+        <thead>
+          <tr><th>ts</th><th>type</th><th>status</th></tr>
+        </thead>
+        <tbody id="logsTbody"></tbody>
+      </table>
+      <div class="pager" id="logsPager" style="margin-top:12px"></div>
+      <div class="muted small" style="margin-top:8px">Подсказка: клик по строке откроет детали справа.</div>
+    </div>
+
+    <div class="card" id="logDetail">
+      <div class="muted">Выберите запись</div>
+    </div>
+  </div>
+</div>
+
+        </main>
+      </div>
+    </div>
+  </div>
+
+  
+  <!-- Import modal -->
+  <div class="modalBack" id="importModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Импорт">
+      <div class="head">
+        <div style="font-weight:800">Импорт</div>
+        <button class="btn small" id="closeImport" aria-label="Закрыть">×</button>
+      </div>
+      <div class="body">
+        <div class="grid2">
+          <div>
+            <div class="muted small" style="margin-bottom:6px">Файл</div>
+            <input class="input" id="importFile" type="file" />
+            <div class="muted small" style="margin-top:6px">Загрузка файла в backend FastAPI</div>
+          </div>
+          <div>
+            <div class="muted small" style="margin-bottom:6px">Тип</div>
+            <select class="select" id="importType">
+              <option value="access">access</option>
+              <option value="error">error</option>
+            </select>
+            <div class="muted small" style="margin:10px 0 6px">Режим</div>
+            <select class="select" id="importMode">
+              <option value="append">append</option>
+              <option value="replace">replace</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <button class="btn" id="cancelImport">Отмена</button>
+        <button class="btn primary" id="doImport" type="button">Импортировать</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export modal -->
+  <div class="modalBack" id="exportModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Экспорт">
+      <div class="head">
+        <div style="font-weight:800">Экспорт</div>
+        <button class="btn small" id="closeExport" aria-label="Закрыть">×</button>
+      </div>
+      <div class="body">
+        <div class="grid2">
+          <div>
+            <div class="muted small" style="margin-bottom:6px">Что включать</div>
+            <label class="small"><input id="expLogs" type="checkbox" checked/> logs</label><br/>
+            <label class="small"><input id="expRuns" type="checkbox" checked/> clustering runs + clusters</label>
+          </div>
+          <div>
+            <div class="muted small" style="margin-bottom:6px">Формат</div>
+            <select class="select">
+              <option>JSON</option>
+              <option disabled>CSV (скоро)</option>
+            </select>
+            <div class="muted small" style="margin-top:10px">Скачивание формируется на клиенте (демо)</div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <button class="btn" id="cancelExport">Отмена</button>
+        <button class="btn primary" id="doExport">Скачать</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Raw modal -->
+  <div class="modalBack" id="rawModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Raw log">
+      <div class="head">
+        <div style="font-weight:800">Raw log</div>
+        <button class="btn small" onclick="document.getElementById('rawModal').classList.remove('open')">×</button>
+      </div>
+      <div class="body">
+        <pre id="rawText" style="margin:0; white-space:pre-wrap; font-size:13px; line-height:1.35; color:#111827"></pre>
+      </div>
+      <div class="foot">
+        <button class="btn" onclick="document.getElementById('rawModal').classList.remove('open')">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
+</body>
+</html>
