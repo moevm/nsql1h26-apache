@@ -24,7 +24,6 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
-
 ## 3. Открыть приложение
 
 После запуска доступны:
