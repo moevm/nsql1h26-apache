@@ -19,6 +19,13 @@ class LogsRepository:
         result = self.collection.delete_many({"log_type": log_type})
         return result.deleted_count
 
+    def delete_all(self) -> int:
+        result = self.collection.delete_many({})
+        return result.deleted_count
+
+    def is_empty(self) -> bool:
+        return self.collection.estimated_document_count() == 0
+
     def insert_many(self, documents: Iterable[dict[str, Any]]) -> int:
         docs = list(documents)
         if not docs:

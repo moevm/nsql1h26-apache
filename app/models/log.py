@@ -80,6 +80,8 @@ class ImportResponse(MongoBaseModel):
     total: int
     inserted: int
     errors: int
+    access: int = 0
+    error: int = 0
 
 
 class LogsFilterParams(PaginationParams):

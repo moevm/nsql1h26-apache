@@ -83,19 +83,11 @@ async function apiFetch(path, options = {}) {
   return response.text();
 }
 
-function parsePeriodInput(s) {
-  const m = String(s || "").match(/(\d{4}-\d{2}-\d{2})/g);
-  if (!m || m.length === 0) return null;
-  if (m.length === 1) return { from: m[0], to: m[0] };
-  return { from: m[0], to: m[1] };
-}
-
-function toIsoDateStart(date) {
-  return `${date}T00:00:00Z`;
-}
-
-function toIsoDateEnd(date) {
-  return `${date}T23:59:59Z`;
+function datetimeLocalToIso(value) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toISOString();
 }
 
 function normalizeLog(raw) {
@@ -171,10 +163,9 @@ async function fetchRawLog(logId) {
   return apiFetch(`/logs/${encodeURIComponent(logId)}/raw`);
 }
 
-async function importLogs(file, type, mode) {
+async function importLogs(file, mode) {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("type", type);
   formData.append("mode", mode);
 
   return apiFetch("/import", {
@@ -255,7 +246,6 @@ function getImportModalControls() {
   if (!modal) return null;
 
   const fileInput = $("#importFile", modal);
-  const typeSelect = $("#importType", modal);
   const modeSelect = $("#importMode", modal);
 
   if (fileInput) {
@@ -267,7 +257,7 @@ function getImportModalControls() {
   const importButton = $("#doImport");
   if (importButton) importButton.textContent = "Импортировать";
 
-  return { modal, fileInput, typeSelect, modeSelect };
+  return { modal, fileInput, modeSelect };
 }
 
 function bindGlobal() {
@@ -299,7 +289,6 @@ function bindGlobal() {
   $("#doImport")?.addEventListener("click", async () => {
     const controls = getImportModalControls();
     const file = controls?.fileInput?.files?.[0];
-    const type = controls?.typeSelect?.value || "access";
     const mode = controls?.modeSelect?.value || "append";
 
     if (!file) {
@@ -315,10 +304,10 @@ function bindGlobal() {
     }
 
     try {
-      const result = await importLogs(file, type, mode);
+      const result = await importLogs(file, mode);
       closeModal("#importModal");
       if (controls?.fileInput) controls.fileInput.value = "";
-      toast(`Импорт завершён: ${result.inserted}/${result.total}, ошибок: ${result.errors}`);
+      toast(`Импорт завершён: ${result.inserted}/${result.total}, access: ${result.access || 0}, error: ${result.error || 0}, ошибок: ${result.errors}`);
       if (document.body.dataset.page === "logs" && window.__refreshLogsPage) {
         await window.__refreshLogsPage();
       }
@@ -366,7 +355,8 @@ function initLogsPage() {
   const pageSize = 50;
 
   let activeFilters = {
-    period: "",
+    from_date: "",
+    to_date: "",
     type: "all",
     result: "all",
     statusGroup: "all",
@@ -389,7 +379,8 @@ function initLogsPage() {
   const resultSelect = $("#resultSelect");
   const statusSelect = $("#statusSelect");
   const ipInput = $("#ipInput");
-  const periodInput = $("#periodInput");
+  const fromDateInput = $("#fromDateInput");
+  const toDateInput = $("#toDateInput");
   const resetBtn = $("#resetFilters");
   const searchInput = $("#searchInput");
 
@@ -398,7 +389,8 @@ function initLogsPage() {
     if (resultSelect) resultSelect.value = activeFilters.result || "all";
     if (statusSelect) statusSelect.value = activeFilters.statusGroup || "all";
     if (ipInput) ipInput.value = activeFilters.ip || "";
-    if (periodInput) periodInput.value = activeFilters.period || "";
+    if (fromDateInput) fromDateInput.value = activeFilters.from_date || "";
+    if (toDateInput) toDateInput.value = activeFilters.to_date || "";
     if (searchInput) searchInput.value = activeFilters.q || "";
   }
 
@@ -407,7 +399,8 @@ function initLogsPage() {
     chipsEl.innerHTML = "";
     const defs = [];
 
-    if (activeFilters.period) defs.push({ k: "period", v: `period: ${activeFilters.period}` });
+    if (activeFilters.from_date) defs.push({ k: "from_date", v: `from: ${activeFilters.from_date}` });
+    if (activeFilters.to_date) defs.push({ k: "to_date", v: `to: ${activeFilters.to_date}` });
     if (activeFilters.type && activeFilters.type !== "all") defs.push({ k: "type", v: `type: ${activeFilters.type}`, cls: activeFilters.type === "access" ? "good" : "" });
     if (activeFilters.result && activeFilters.result !== "all") defs.push({ k: "result", v: `result: ${activeFilters.result}` });
     if (activeFilters.statusGroup && activeFilters.statusGroup !== "all") defs.push({ k: "statusGroup", v: `status: ${activeFilters.statusGroup}` });
@@ -420,7 +413,7 @@ function initLogsPage() {
       chip.className = "chip " + (d.cls || "");
       chip.innerHTML = `<span>${escapeHTML(d.v)}</span><span class="x" title="Убрать">×</span>`;
       chip.querySelector(".x")?.addEventListener("click", () => {
-        activeFilters[d.k] = d.k === "period" ? "" : null;
+        activeFilters[d.k] = ["from_date", "to_date"].includes(d.k) ? "" : null;
         if (d.k === "type") activeFilters.type = "all";
         if (d.k === "result") activeFilters.result = "all";
         if (d.k === "statusGroup") activeFilters.statusGroup = "all";
@@ -438,11 +431,15 @@ function initLogsPage() {
     });
   }
 
-  function inPeriod(log, period) {
-    if (!period) return true;
-    const d = log.date;
-    if (!d) return true;
-    return d >= period.from && d <= period.to;
+  function inPeriod(log) {
+    if (!activeFilters.from_date && !activeFilters.to_date) return true;
+    const ts = log.timestamp ? new Date(log.timestamp) : null;
+    if (!ts || Number.isNaN(ts.getTime())) return true;
+    const from = activeFilters.from_date ? new Date(activeFilters.from_date) : null;
+    const to = activeFilters.to_date ? new Date(activeFilters.to_date) : null;
+    if (from && ts < from) return false;
+    if (to && ts > to) return false;
+    return true;
   }
 
   function statusMatches(log) {
@@ -500,9 +497,8 @@ function initLogsPage() {
   }
 
   function matches(log) {
-    const period = parsePeriodInput(activeFilters.period);
     return (
-      inPeriod(log, period) &&
+      inPeriod(log) &&
       typeMatches(log) &&
       resultMatches(log) &&
       statusMatches(log) &&
@@ -696,12 +692,11 @@ function initLogsPage() {
 
   async function loadFromServer() {
     const currentRequest = ++requestId;
-    const period = parsePeriodInput(activeFilters.period);
     const serverFilters = {
       type: activeFilters.type !== "all" ? activeFilters.type : undefined,
       search: activeFilters.q || undefined,
-      from_date: period?.from ? toIsoDateStart(period.from) : undefined,
-      to_date: period?.to ? toIsoDateEnd(period.to) : undefined,
+      from_date: datetimeLocalToIso(activeFilters.from_date),
+      to_date: datetimeLocalToIso(activeFilters.to_date),
       limit: 5000,
       offset: 0,
     };
@@ -766,8 +761,14 @@ function initLogsPage() {
     await render();
   });
 
-  periodInput?.addEventListener("input", async (e) => {
-    activeFilters.period = e.target.value.trim();
+  fromDateInput?.addEventListener("input", async (e) => {
+    activeFilters.from_date = e.target.value;
+    currentPage = 1;
+    await render();
+  });
+
+  toDateInput?.addEventListener("input", async (e) => {
+    activeFilters.to_date = e.target.value;
     currentPage = 1;
     await render();
   });
@@ -780,7 +781,8 @@ function initLogsPage() {
 
   resetBtn?.addEventListener("click", async () => {
     activeFilters = {
-      period: "",
+      from_date: "",
+      to_date: "",
       type: "all",
       result: "all",
       statusGroup: "all",

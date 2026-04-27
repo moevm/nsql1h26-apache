@@ -56,12 +56,15 @@ def get_export_params(
 @router.post("/import", response_model=ImportResponse)
 def import_logs(
     file: UploadFile = File(...),
-    type: LogType = Form(...),
+    type: LogType | None = Form(default=None),
     mode: ImportMode = Form(...),
     db: Database = Depends(get_db),
 ):
     service = ImportService(db)
-    return service.import_logs(file, type, mode)
+    try:
+        return service.import_logs(file, type, mode)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.get("/export", response_model=list[LogDocument], response_model_exclude_none=True)
