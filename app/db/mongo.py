@@ -6,6 +6,7 @@ from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.database import Database
 
 from app.config import settings
+from app.services.seed_service import SeedService
 
 
 @lru_cache(maxsize=1)
@@ -25,6 +26,7 @@ def init_database() -> None:
     logs.create_index([("parsed.status", ASCENDING)], name="idx_logs_status")
     logs.create_index([("parsed.method", ASCENDING)], name="idx_logs_method")
     logs.create_index([("import_batch_id", ASCENDING)], name="idx_logs_import_batch")
+    SeedService(db).seed_if_empty()
 
 
 def ping() -> bool:
