@@ -32,17 +32,27 @@
 <div class="card">
   <h1 class="h1">Кластеризация</h1>
 
-  <div style="margin-top:10px">
-    <input class="input" id="methodInput" placeholder="Метод: endpoint + status (+ ip опц.)" value="endpoint + status (+ ip опц.)"/>
-  </div>
-
-  <div style="margin-top:10px">
-    <input class="input" id="filtersInput" placeholder="Фильтры: type=access | errors-only | период" value="type=access | errors-only | период"/>
+  <div class="grid2" style="margin-top:10px">
+    <div>
+      <div class="muted small" style="margin-bottom:6px">Набор логов</div>
+      <select class="select" id="clusterLogTypeSelect">
+        <option value="">Все логи</option>
+        <option value="access">Только access</option>
+        <option value="error">Только error</option>
+      </select>
+    </div>
+    <div>
+      <div class="muted small" style="margin-bottom:6px">Правило группировки</div>
+      <select class="select" id="clusterMethodSelect">
+        <option value="rule_based">Авто: access по URL/статусу, error по сообщению</option>
+        <option value="access_endpoint_status" data-log-type="access">Access: метод + URL + статус</option>
+        <option value="error_level_message" data-log-type="error">Error: уровень + шаблон сообщения</option>
+      </select>
+    </div>
   </div>
 
   <div class="row" style="margin-top:12px">
     <button class="btn primary" id="runBtn">Запустить</button>
-    <button class="btn" id="savePreset">Сохранить preset</button>
   </div>
 
   <div class="card" style="margin-top:12px">
@@ -59,11 +69,11 @@
   <div class="row" style="justify-content:space-between">
     <div>
       <div style="font-weight:900; font-size:18px">Все запуски кластеризации</div>
-      <div class="muted small" style="margin-top:4px">Клик по запуску → экран «Запуски» (S4) с результатами выбранного запуска</div>
+      <div class="muted small" style="margin-top:4px">Клик по запуску → откроется результат выбранного запуска</div>
     </div>
   </div>
 
-  <div class="grid3" style="margin-top:12px">
+  <div class="grid2" style="margin-top:12px">
     <div>
       <div class="muted small" style="margin-bottom:6px">Фильтр по методу</div>
       <input class="input" id="runMethodFilter" placeholder="например: endpoint, status, error_template"/>
@@ -71,15 +81,10 @@
     <div>
       <div class="muted small" style="margin-bottom:6px">Статус</div>
       <select class="select" id="runStatusFilter">
-        <option value="all">all</option>
-        <option value="finished">finished</option>
-        <option value="running">running</option>
-        <option value="failed">failed</option>
+        <option value="all">Все</option>
+        <option value="finished">Завершён</option>
+        <option value="failed">Ошибка</option>
       </select>
-    </div>
-    <div>
-      <div class="muted small" style="margin-bottom:6px">Период</div>
-      <input class="input" id="runPeriodFilter" placeholder="YYYY-MM-DD … YYYY-MM-DD (заглушка)" disabled />
     </div>
   </div>
 
@@ -96,6 +101,7 @@
       </thead>
       <tbody id="runsTbody"></tbody>
     </table>
+    <div class="pager" id="runsPager" style="margin-top:12px"></div>
   </div>
 </div>
 
@@ -148,8 +154,8 @@
         <div class="grid2">
           <div>
             <div class="muted small" style="margin-bottom:6px">Что включать</div>
-            <label class="small"><input id="expLogs" type="checkbox" checked/> logs</label><br/>
-            <label class="small"><input id="expRuns" type="checkbox" disabled/> clustering runs + clusters (следующая итерация)</label>
+            <label class="small"><input id="expLogs" type="checkbox" checked disabled/> logs</label><br/>
+            <label class="small"><input id="expRuns" type="checkbox" checked disabled/> clustering runs + clusters</label>
           </div>
           <div>
             <div class="muted small" style="margin-bottom:6px">Формат</div>
@@ -157,7 +163,7 @@
               <option>JSON</option>
               <option disabled>CSV (скоро)</option>
             </select>
-            <div class="muted small" style="margin-top:10px">На этапе 0.5 экспортируется только список логов</div>
+            <div class="muted small" style="margin-top:10px">Экспортируется полный JSON приложения</div>
           </div>
         </div>
       </div>
