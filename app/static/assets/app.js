@@ -174,13 +174,41 @@ async function importLogs(file, mode) {
   });
 }
 
-async function exportLogsFromApi(filters = {}) {
-  const params = new URLSearchParams();
-  if (filters.type && filters.type !== "all") params.set("type", filters.type);
-  if (filters.limit != null) params.set("limit", String(filters.limit));
-  if (filters.offset != null) params.set("offset", String(filters.offset));
+async function exportApplicationFromApi() {
+  return apiFetch("/export");
+}
 
-  return apiFetch(`/export?${params.toString()}`);
+async function createClusterRun(payload = {}) {
+  return apiFetch("/cluster-runs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+async function fetchClusterRuns(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.method) params.set("method", filters.method);
+  if (filters.status && filters.status !== "all") params.set("status", filters.status);
+  params.set("limit", String(filters.limit ?? 100));
+  params.set("offset", String(filters.offset ?? 0));
+  return apiFetch(`/cluster-runs?${params.toString()}`);
+}
+
+async function fetchClusterRun(runId) {
+  return apiFetch(`/cluster-runs/${encodeURIComponent(runId)}`);
+}
+
+async function fetchClusters(runId, filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.search) params.set("search", filters.search);
+  params.set("limit", String(filters.limit ?? 500));
+  params.set("offset", String(filters.offset ?? 0));
+  return apiFetch(`/cluster-runs/${encodeURIComponent(runId)}/clusters?${params.toString()}`);
+}
+
+async function fetchClusterRunStats(runId) {
+  return apiFetch(`/cluster-runs/${encodeURIComponent(runId)}/stats`);
 }
 
 function downloadJson(filename, payload) {
@@ -195,50 +223,74 @@ function downloadJson(filename, payload) {
   URL.revokeObjectURL(url);
 }
 
-function seedDemoRunsOnce() {
-  if (localStorage.getItem("apacheLogs.seededRuns")) return;
+function renderPager(container, { total, page, pageSize, onChange }) {
+  if (!container) return;
 
-  const runs = [
-    { id: "r1", created: "10:05", createdDate: "2026-02-24", method: "endpoint+status", filters: "type=access | period", status: "finished", clusters: 124, logsProcessed: 12480, updated: "10:06", comment: "" },
-    { id: "r2", created: "09:40", createdDate: "2026-02-24", method: "error_template", filters: "type=error", status: "finished", clusters: 18, logsProcessed: 640, updated: "09:41", comment: "" },
-    { id: "r3", created: "вчера", createdDate: "2026-02-23", method: "endpoint", filters: "access | errors-only", status: "finished", clusters: 77, logsProcessed: 9050, updated: "вчера", comment: "" },
-    { id: "r4", created: "вчера", createdDate: "2026-02-23", method: "status", filters: "access", status: "failed", clusters: 0, logsProcessed: 0, updated: "вчера", comment: "timeout while embedding" },
-  ];
+  if (total <= 0) {
+    container.innerHTML = "";
+    return;
+  }
 
-  const clustersByRun = {
-    r1: [
-      { id: "c1", key: "GET /api/user/<ID>/profile#200", cnt: 420, hint: "endpoint+status" },
-      { id: "c2", key: "GET /api/item/<ID>#404", cnt: 95, hint: "endpoint+status" },
-      { id: "c3", key: "POST /api/login#500", cnt: 18, hint: "endpoint+status" },
-      { id: "c4", key: "GET /health#200", cnt: 510, hint: "endpoint+status" },
-    ],
-    r2: [
-      { id: "c5", key: "File does not exist: favicon.ico", cnt: 128, hint: "error_template" },
-      { id: "c6", key: "Upstream timed out", cnt: 34, hint: "error_template" },
-    ],
-    r3: [
-      { id: "c7", key: "GET /api/search#200", cnt: 300, hint: "endpoint" },
-      { id: "c8", key: "GET /api/search#500", cnt: 22, hint: "endpoint" },
-    ],
-    r4: [],
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(Math.max(page, 1), totalPages);
+  const start = (currentPage - 1) * pageSize + 1;
+  const end = Math.min(start + pageSize - 1, total);
+
+  const pageItems = [];
+  const addPage = (candidate) => {
+    if (candidate >= 1 && candidate <= totalPages && !pageItems.includes(candidate)) {
+      pageItems.push(candidate);
+    }
   };
 
-  localStorage.setItem("apacheLogs.data.runs", JSON.stringify(runs));
-  localStorage.setItem("apacheLogs.data.clustersByRun", JSON.stringify(clustersByRun));
-  localStorage.setItem("apacheLogs.seededRuns", "1");
-}
-
-function loadJSON(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch (_) {
-    return fallback;
+  if (totalPages <= 7) {
+    for (let candidate = 1; candidate <= totalPages; candidate += 1) addPage(candidate);
+  } else {
+    addPage(1);
+    addPage(2);
+    for (let candidate = currentPage - 1; candidate <= currentPage + 1; candidate += 1) {
+      addPage(candidate);
+    }
+    addPage(totalPages - 1);
+    addPage(totalPages);
   }
-}
 
-function saveJSON(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+  pageItems.sort((a, b) => a - b);
+
+  const paginationMarkup = [];
+  pageItems.forEach((pageItem, index) => {
+    const prevPage = pageItems[index - 1];
+    if (prevPage && pageItem - prevPage > 1) {
+      paginationMarkup.push(`<span class="pagerEllipsis">...</span>`);
+    }
+    paginationMarkup.push(
+      `<button class="btn small${pageItem === currentPage ? " active" : ""}" data-page="${pageItem}" type="button">${pageItem}</button>`
+    );
+  });
+
+  container.innerHTML = `
+    <div class="pagerInfo">Показано ${start}-${end} из ${total}</div>
+    <div class="pagerControls">
+      <button class="btn small" data-page-prev type="button"${currentPage === 1 ? " disabled" : ""}>Назад</button>
+      <div class="pagerPages">${paginationMarkup.join("")}</div>
+      <button class="btn small" data-page-next type="button"${currentPage === totalPages ? " disabled" : ""}>Дальше</button>
+    </div>
+  `;
+
+  $("[data-page-prev]", container)?.addEventListener("click", () => {
+    if (currentPage > 1) onChange(currentPage - 1);
+  });
+
+  $("[data-page-next]", container)?.addEventListener("click", () => {
+    if (currentPage < totalPages) onChange(currentPage + 1);
+  });
+
+  $$("[data-page]", container).forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextPage = Number(button.dataset.page || currentPage);
+      if (Number.isFinite(nextPage) && nextPage !== currentPage) onChange(nextPage);
+    });
+  });
 }
 
 function getImportModalControls() {
@@ -307,7 +359,10 @@ function bindGlobal() {
       const result = await importLogs(file, mode);
       closeModal("#importModal");
       if (controls?.fileInput) controls.fileInput.value = "";
-      toast(`Импорт завершён: ${result.inserted}/${result.total}, access: ${result.access || 0}, error: ${result.error || 0}, ошибок: ${result.errors}`);
+      const analysisText = result.cluster_runs || result.clusters
+        ? `, runs: ${result.cluster_runs || 0}, clusters: ${result.clusters || 0}`
+        : "";
+      toast(`Импорт завершён: ${result.inserted}/${result.total}, access: ${result.access || 0}, error: ${result.error || 0}${analysisText}, ошибок: ${result.errors}`);
       if (document.body.dataset.page === "logs" && window.__refreshLogsPage) {
         await window.__refreshLogsPage();
       }
@@ -330,13 +385,9 @@ function bindGlobal() {
     }
 
     try {
-      if (document.body.dataset.page === "logs" && window.__exportCurrentLogs) {
-        await window.__exportCurrentLogs();
-      } else {
-        const payload = await exportLogsFromApi({ limit: 1000, offset: 0 });
-        downloadJson("apache_logs_export.json", payload);
-        toast("Экспорт логов сформирован");
-      }
+      const payload = await exportApplicationFromApi();
+      downloadJson("apache_logs_application_export.json", payload);
+      toast("Экспорт приложения сформирован");
       closeModal("#exportModal");
     } catch (error) {
       toast(`Ошибка экспорта: ${error.message}`);
@@ -484,9 +535,44 @@ function initLogsPage() {
 
   function clusterMatches(log) {
     if (!activeFilters.cluster) return true;
-    const hay = `${log.method || ""} ${log.endpoint || ""}#${log.status || ""} ${log.message || ""}`.toLowerCase();
-    const needle = activeFilters.cluster.toLowerCase().replace("<id>", "").replace("<ID>", "");
-    return hay.includes(needle);
+    const key = normalizeClusterKey(activeFilters.cluster);
+    const candidates = [];
+
+    if (log.type === "access") {
+      candidates.push(normalizeClusterKey(`${log.method || "UNKNOWN"} ${templateUri(log.endpoint || "-")}#${log.status ?? "-"}`));
+    }
+
+    if (log.type === "error") {
+      candidates.push(normalizeClusterKey(`${log.parsed.level || "unknown"}: ${templateMessage(log.message || log.raw || "")}`));
+    }
+
+    return candidates.some((candidate) => candidate === key || candidate.includes(key) || key.includes(candidate));
+  }
+
+  function normalizeClusterKey(value) {
+    return String(value || "")
+      .replaceAll("<ID>", "<id>")
+      .replaceAll("<IP>", "<ip>")
+      .replaceAll("<PATH_ID>", "<path_id>")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function templateUri(uri) {
+    return String(uri || "-")
+      .split("?")[0]
+      .split("/")
+      .map((part) => (/^\d+$/.test(part) ? "<id>" : part))
+      .join("/") || "/";
+  }
+
+  function templateMessage(message) {
+    return String(message || "")
+      .replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, "<ip>")
+      .replace(/\b\d+\b/g, "<id>")
+      .replace(/\/[A-Za-z0-9._/-]*<id>[A-Za-z0-9._/-]*/g, "/<path_id>")
+      .trim();
   }
 
   function queryMatches(log) {
@@ -567,86 +653,14 @@ function initLogsPage() {
   }
 
   function renderPagination(totalItems) {
-    if (!pager) return;
-
-    if (totalItems <= 0) {
-      pager.innerHTML = "";
-      return;
-    }
-
-    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-    currentPage = Math.min(Math.max(currentPage, 1), totalPages);
-    const start = (currentPage - 1) * pageSize + 1;
-    const end = Math.min(start + pageSize - 1, totalItems);
-
-    const pageItems = [];
-    const addPage = (page) => {
-      if (!pageItems.includes(page)) {
-        pageItems.push(page);
-      }
-    };
-
-    if (totalPages <= 7) {
-      for (let page = 1; page <= totalPages; page += 1) {
-        addPage(page);
-      }
-    } else {
-      addPage(1);
-      addPage(2);
-
-      for (let page = currentPage - 1; page <= currentPage + 1; page += 1) {
-        if (page > 2 && page < totalPages - 1) {
-          addPage(page);
-        }
-      }
-
-      addPage(totalPages - 1);
-      addPage(totalPages);
-    }
-
-    pageItems.sort((a, b) => a - b);
-
-    const paginationMarkup = [];
-    pageItems.forEach((page, index) => {
-      const prevPage = pageItems[index - 1];
-      if (prevPage && page - prevPage > 1) {
-        paginationMarkup.push(`<span class="pagerEllipsis">...</span>`);
-      }
-      paginationMarkup.push(
-        `<button class="btn small${page === currentPage ? " active" : ""}" data-page="${page}" type="button">${page}</button>`
-      );
-    });
-
-    pager.innerHTML = `
-      <div class="pagerInfo">Показано ${start}-${end} из ${totalItems}</div>
-      <div class="pagerControls">
-        <button class="btn small" id="pagerPrev" type="button"${currentPage === 1 ? " disabled" : ""}>Назад</button>
-        <div class="pagerPages">
-          ${paginationMarkup.join("")}
-        </div>
-        <button class="btn small" id="pagerNext" type="button"${currentPage === totalPages ? " disabled" : ""}>Дальше</button>
-      </div>
-    `;
-
-    $("#pagerPrev", pager)?.addEventListener("click", async () => {
-      if (currentPage <= 1) return;
-      currentPage -= 1;
-      renderTable(currentFilteredLogs);
-    });
-
-    $("#pagerNext", pager)?.addEventListener("click", async () => {
-      if (currentPage >= totalPages) return;
-      currentPage += 1;
-      renderTable(currentFilteredLogs);
-    });
-
-    $$("[data-page]", pager).forEach((button) => {
-      button.addEventListener("click", async () => {
-        const nextPage = Number(button.dataset.page || currentPage);
-        if (!Number.isFinite(nextPage) || nextPage === currentPage) return;
+    renderPager(pager, {
+      total: totalItems,
+      page: currentPage,
+      pageSize,
+      onChange: (nextPage) => {
         currentPage = nextPage;
         renderTable(currentFilteredLogs);
-      });
+      },
     });
   }
 
@@ -800,36 +814,90 @@ function initLogsPage() {
   render();
 }
 
+function normalizeRun(raw) {
+  const createdAt = raw.created_at ? new Date(raw.created_at) : null;
+  const validCreated = createdAt && !Number.isNaN(createdAt.getTime());
+  const summary = raw.summary || {};
+  return {
+    id: raw.id || raw._id,
+    created: validCreated ? createdAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : "—",
+    createdDate: validCreated ? createdAt.toLocaleDateString("ru-RU") : "—",
+    method: raw.method || "rule_based",
+    filters: raw.filters || {},
+    filtersText: Object.keys(raw.filters || {}).length ? fmtJSON(raw.filters) : "без фильтров",
+    status: raw.status || "finished",
+    clusters: summary.clusters_total ?? 0,
+    logsProcessed: summary.clustered_logs_total ?? summary.logs_total ?? 0,
+    original: raw,
+  };
+}
+
+function normalizeCluster(raw) {
+  return {
+    id: raw.id || raw._id,
+    runId: raw.run_id,
+    key: raw.cluster_key || "—",
+    cnt: raw.size ?? 0,
+    stats: raw.stats || {},
+    samples: raw.samples || [],
+    description: raw.description || "",
+    original: raw,
+  };
+}
+
 function initClusteringPage() {
-  const runs = loadJSON("apacheLogs.data.runs", []);
-  const clustersByRun = loadJSON("apacheLogs.data.clustersByRun", {});
+  let runs = [];
+  let clustersByRun = {};
+  let currentRunsPage = 1;
+  let runsTotal = 0;
+  const runsPageSize = 10;
+  const runsPager = $("#runsPager");
+  const clusterLogTypeSelect = $("#clusterLogTypeSelect");
+  const clusterMethodSelect = $("#clusterMethodSelect");
+
+  function syncClusterControls() {
+    const selectedOption = clusterMethodSelect?.selectedOptions?.[0];
+    const forcedType = selectedOption?.dataset?.logType || "";
+    if (clusterLogTypeSelect) {
+      if (forcedType) clusterLogTypeSelect.value = forcedType;
+      clusterLogTypeSelect.disabled = Boolean(forcedType);
+    }
+  }
+
+  function getClusterRunPayload() {
+    const selectedOption = clusterMethodSelect?.selectedOptions?.[0];
+    const forcedType = selectedOption?.dataset?.logType || "";
+    const selectedType = clusterLogTypeSelect?.value || "";
+    const filters = {};
+    if (forcedType || selectedType) filters.type = forcedType || selectedType;
+    return {
+      method: clusterMethodSelect?.value || "rule_based",
+      filters,
+    };
+  }
 
   function renderLast() {
     const last = runs[0];
-    if (!last) return;
+    if (!last) {
+      $("#lastClusters").textContent = "—";
+      $("#lastProcessed").textContent = "—";
+      $("#lastTop").textContent = "—";
+      return;
+    }
     $("#lastClusters").textContent = last.clusters || "—";
     $("#lastProcessed").textContent = last.logsProcessed || "—";
     $("#lastTop").textContent = clustersByRun[last.id]?.[0]?.key || "—";
-  }
-
-  function matchesRun(r) {
-    const m = ($("#runMethodFilter")?.value || "").trim().toLowerCase();
-    const s = ($("#runStatusFilter")?.value || "all").trim().toLowerCase();
-    if (m && !String(r.method || "").toLowerCase().includes(m)) return false;
-    if (s !== "all" && String(r.status || "").toLowerCase() !== s) return false;
-    return true;
   }
 
   function renderRunsTable() {
     const body = $("#runsTbody");
     if (!body) return;
     body.innerHTML = "";
-    const list = runs.filter(matchesRun);
 
-    list.forEach((r) => {
+    runs.forEach((r) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${escapeHTML(r.created)}</td>
+        <td>${escapeHTML(`${r.createdDate} ${r.created}`)}</td>
         <td>${escapeHTML(r.method)}</td>
         <td>${escapeHTML(r.status)}</td>
         <td>${escapeHTML(String(r.clusters ?? "—"))}</td>
@@ -841,39 +909,101 @@ function initClusteringPage() {
       body.appendChild(tr);
     });
 
-    if (list.length === 0) {
+    if (runs.length === 0) {
       const tr = document.createElement("tr");
       tr.innerHTML = `<td colspan="5" class="muted">Нет запусков под фильтры</td>`;
       body.appendChild(tr);
     }
+
+    renderPager(runsPager, {
+      total: runsTotal,
+      page: currentRunsPage,
+      pageSize: runsPageSize,
+      onChange: async (nextPage) => {
+        currentRunsPage = nextPage;
+        await refresh();
+      },
+    });
   }
 
-  $("#runBtn")?.addEventListener("click", () => {
-    toast("Кластеризация будет добавлена в следующей итерации");
+  async function loadRuns() {
+    const result = await fetchClusterRuns({
+      method: ($("#runMethodFilter")?.value || "").trim(),
+      status: $("#runStatusFilter")?.value || "all",
+      limit: runsPageSize,
+      offset: (currentRunsPage - 1) * runsPageSize,
+    });
+    runs = (result.items || []).map(normalizeRun);
+    runsTotal = Number(result.total || 0);
+    clustersByRun = {};
+    if (runs[0]) {
+      const clustersResult = await fetchClusters(runs[0].id, { limit: 1, offset: 0 });
+      clustersByRun[runs[0].id] = (clustersResult.items || []).map(normalizeCluster);
+    }
+  }
+
+  async function refresh() {
+    const body = $("#runsTbody");
+    if (body) body.innerHTML = `<tr><td colspan="5" class="muted">Загрузка...</td></tr>`;
+    try {
+      await loadRuns();
+      renderLast();
+      renderRunsTable();
+    } catch (error) {
+      if (body) body.innerHTML = `<tr><td colspan="5" class="muted">Ошибка загрузки: ${escapeHTML(error.message)}</td></tr>`;
+      if (runsPager) runsPager.innerHTML = "";
+      toast(`Ошибка загрузки запусков: ${error.message}`);
+    }
+  }
+
+  $("#runBtn")?.addEventListener("click", async () => {
+    const btn = $("#runBtn");
+    const prevText = btn?.textContent || "Запустить";
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Запуск...";
+    }
+    try {
+      const run = normalizeRun(await createClusterRun(getClusterRunPayload()));
+      toast(`Кластеризация завершена: ${run.clusters} кластеров`);
+      await refresh();
+    } catch (error) {
+      toast(`Ошибка кластеризации: ${error.message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = prevText;
+      }
+    }
   });
 
-  $("#savePreset")?.addEventListener("click", () => {
-    toast("Preset будет добавлен в следующей итерации");
+  clusterMethodSelect?.addEventListener("change", syncClusterControls);
+  $("#runMethodFilter")?.addEventListener("input", async () => {
+    currentRunsPage = 1;
+    await refresh();
+  });
+  $("#runStatusFilter")?.addEventListener("change", async () => {
+    currentRunsPage = 1;
+    await refresh();
   });
 
-  $("#runMethodFilter")?.addEventListener("input", renderRunsTable);
-  $("#runStatusFilter")?.addEventListener("change", renderRunsTable);
-
-  renderLast();
-  renderRunsTable();
+  syncClusterControls();
+  refresh();
 }
 
 function initRunsPage() {
-  const runs = loadJSON("apacheLogs.data.runs", []);
-  const clustersByRun = loadJSON("apacheLogs.data.clustersByRun", {});
   const params = new URLSearchParams(location.search);
-  const runId = params.get("run") || runs[0]?.id;
-
-  const run = runs.find((r) => r.id === runId) || runs[0];
-  const clusters = clustersByRun[run?.id] || [];
+  let runId = params.get("run");
+  let run = null;
+  let clusters = [];
+  let clustersTotal = 0;
+  let currentClustersPage = 1;
+  let statsPayload = null;
+  const clustersPageSize = 10;
 
   const meta = $("#runMeta");
   const clustersBody = $("#clustersTbody");
+  const clustersPager = $("#clustersPager");
   const showBtn = $("#showClusterLogs");
 
   let selectedClusterKey = null;
@@ -882,6 +1012,13 @@ function initRunsPage() {
     $("#kpiClusters").textContent = String(run?.clusters ?? clusters.length ?? "—");
     $("#kpiProcessed").textContent = String(run?.logsProcessed ?? "—");
     $("#kpiStatus").textContent = String(run?.status ?? "—");
+
+    const statusCounts = statsPayload?.status_counts || {};
+    const methodCounts = statsPayload?.method_counts || {};
+    const logTypeCounts = statsPayload?.log_type_counts || {};
+    $("#statsStatusGroups").textContent = Object.keys(statusCounts).length ? Object.keys(statusCounts).length : "—";
+    $("#statsMethods").textContent = Object.keys(methodCounts).length ? Object.keys(methodCounts).join(", ") : "—";
+    $("#statsLogTypes").textContent = Object.keys(logTypeCounts).length ? Object.keys(logTypeCounts).join(", ") : "—";
   }
 
   function renderMeta() {
@@ -889,7 +1026,7 @@ function initRunsPage() {
       meta.textContent = "Запуск не найден (выберите на экране «Кластеризация»)";
       return;
     }
-    meta.textContent = `run_id: ${run.id} · created: ${run.createdDate || "—"} ${run.created || ""} · method: ${run.method} · filters: ${run.filters}`;
+    meta.textContent = `run_id: ${run.id} · created: ${run.createdDate || "—"} ${run.created || ""} · method: ${run.method} · filters: ${run.filtersText}`;
   }
 
   function renderClusters() {
@@ -916,26 +1053,39 @@ function initRunsPage() {
     }
 
     showBtn.disabled = !selectedClusterKey;
+
+    renderPager(clustersPager, {
+      total: clustersTotal,
+      page: currentClustersPage,
+      pageSize: clustersPageSize,
+      onChange: async (nextPage) => {
+        currentClustersPage = nextPage;
+        selectedClusterKey = null;
+        await loadRunDetails();
+      },
+    });
   }
 
   function drawClusterChart() {
     const canvas = $("#clusterChart");
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
+    const legend = $("#clusterChartLegend");
 
-    const items = [...clusters]
-      .sort((a, b) => (b.cnt || 0) - (a.cnt || 0))
+    const items = [...(statsPayload?.top_clusters || clusters)]
+      .map(normalizeCluster)
       .slice(0, 10)
-      .map((c) => ({ x: c.key, y: Number(c.cnt || 0) }));
+      .map((c, index) => ({ label: `#${index + 1}`, key: c.key, y: Number(c.cnt || 0) }));
 
     const w = (canvas.width = canvas.clientWidth * devicePixelRatio);
     const h = (canvas.height = 240 * devicePixelRatio);
     ctx.clearRect(0, 0, w, h);
 
-    const padding = 24 * devicePixelRatio;
+    const padding = 28 * devicePixelRatio;
+    const bottomPadding = 42 * devicePixelRatio;
     const maxY = Math.max(1, ...items.map((i) => i.y));
     const barW = (w - padding * 2) / Math.max(1, items.length);
-    const base = h - padding;
+    const base = h - bottomPadding;
 
     ctx.strokeStyle = "rgba(17,24,39,.18)";
     ctx.lineWidth = 1 * devicePixelRatio;
@@ -955,6 +1105,27 @@ function initRunsPage() {
       ctx.fill();
     });
 
+    ctx.fillStyle = "rgba(17,24,39,.72)";
+    ctx.font = `${12 * devicePixelRatio}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    items.forEach((it, i) => {
+      const x = padding + i * barW + barW / 2;
+      ctx.fillText(it.label, x, base + 10 * devicePixelRatio);
+    });
+
+    if (legend) {
+      legend.innerHTML = items.length
+        ? items.map((it) => `
+            <div class="legendItem">
+              <span class="legendIndex">${escapeHTML(it.label)}</span>
+              <span class="legendKey">${escapeHTML(it.key)}</span>
+              <span class="legendCount">${escapeHTML(String(it.y))}</span>
+            </div>
+          `).join("")
+        : `<div class="muted small">Нет данных для графика</div>`;
+    }
+
     function roundRect(ctx, x, y, w, h, r) {
       const rr = Math.min(r, w / 2, h / 2);
       ctx.beginPath();
@@ -968,8 +1139,9 @@ function initRunsPage() {
   }
 
   $("#clusterSearch")?.addEventListener("input", () => {
-    renderClusters();
-    drawClusterChart();
+    currentClustersPage = 1;
+    selectedClusterKey = null;
+    loadRunDetails();
   });
 
   showBtn?.addEventListener("click", () => {
@@ -977,14 +1149,55 @@ function initRunsPage() {
     location.href = `logs.html?cluster=${encodeURIComponent(selectedClusterKey)}`;
   });
 
-  renderMeta();
-  setKPI();
-  renderClusters();
-  drawClusterChart();
+  async function loadRunDetails() {
+    try {
+      if (!runId) {
+        const runsResult = await fetchClusterRuns({ limit: 1, offset: 0 });
+        runId = runsResult.items?.[0]?.id || runsResult.items?.[0]?._id || null;
+      }
+
+      if (!runId) {
+        run = null;
+        clusters = [];
+        clustersTotal = 0;
+        statsPayload = null;
+        renderMeta();
+        setKPI();
+        renderClusters();
+        drawClusterChart();
+        return;
+      }
+
+      const [runPayload, clustersPayload, statsResult] = await Promise.all([
+        fetchClusterRun(runId),
+        fetchClusters(runId, {
+          search: ($("#clusterSearch")?.value || "").trim(),
+          limit: clustersPageSize,
+          offset: (currentClustersPage - 1) * clustersPageSize,
+        }),
+        fetchClusterRunStats(runId),
+      ]);
+      run = normalizeRun(runPayload);
+      clusters = (clustersPayload.items || []).map(normalizeCluster);
+      clustersTotal = Number(clustersPayload.total || 0);
+      statsPayload = statsResult;
+      if (statsPayload?.run) run = normalizeRun(statsPayload.run);
+      renderMeta();
+      setKPI();
+      renderClusters();
+      drawClusterChart();
+    } catch (error) {
+      if (meta) meta.textContent = `Ошибка загрузки: ${error.message}`;
+      if (clustersBody) clustersBody.innerHTML = `<tr><td colspan="2" class="muted">Ошибка загрузки</td></tr>`;
+      if (clustersPager) clustersPager.innerHTML = "";
+      toast(`Ошибка загрузки запуска: ${error.message}`);
+    }
+  }
+
+  loadRunDetails();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  seedDemoRunsOnce();
   setActiveNav();
   bindGlobal();
 
