@@ -41,20 +41,12 @@
             <div class="grid2" style="margin-top:14px">
               <a class="card" href="logs.html" style="display:block">
                 <div style="font-weight:800; margin-bottom:6px">Логи</div>
-                <div class="muted small">Таблица + фильтры + поиск + пагинация</div>
+                <div class="muted small">Таблица + фильтры + поиск</div>
               </a>
               <a class="card" href="clustering.html" style="display:block">
                 <div style="font-weight:800; margin-bottom:6px">Кластеризация</div>
                 <div class="muted small">Группировка по endpoint/status/ip</div>
               </a>
-            </div>
-
-            <div class="card" style="margin-top:12px">
-              <div style="font-weight:800; margin-bottom:6px">Статистика</div>
-              <div class="muted small">Top endpoint/IP/status и графики будут добавлены на следующей итерации</div>
-              <div style="margin-top:10px">
-                <button class="btn small" type="button" disabled>Будет позже</button>
-              </div>
             </div>
           </div>
 
@@ -108,8 +100,8 @@
         <div class="grid2">
           <div>
             <div class="muted small" style="margin-bottom:6px">Что включать</div>
-            <label class="small"><input id="expLogs" type="checkbox" checked /> logs</label><br />
-            <label class="small"><input id="expRuns" type="checkbox" disabled /> clustering runs + clusters (следующая итерация)</label>
+            <label class="small"><input id="expLogs" type="checkbox" checked disabled /> logs</label><br />
+            <label class="small"><input id="expRuns" type="checkbox" checked disabled /> clustering runs + clusters</label>
           </div>
           <div>
             <div class="muted small" style="margin-bottom:6px">Формат</div>
@@ -117,6 +109,7 @@
               <option>JSON</option>
               <option disabled>CSV (скоро)</option>
             </select>
+            <div class="muted small" style="margin-top:10px">Экспортируется полный JSON приложения</div>
           </div>
         </div>
       </div>
