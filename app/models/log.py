@@ -82,6 +82,9 @@ class ImportResponse(MongoBaseModel):
     errors: int
     access: int = 0
     error: int = 0
+    logs: int = 0
+    cluster_runs: int = 0
+    clusters: int = 0
 
 
 class LogsFilterParams(PaginationParams):
