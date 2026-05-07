@@ -58,6 +58,13 @@ class LogsRepository:
         )
         return list(cursor)
 
+    def find_all_for_export(self) -> list[dict[str, Any]]:
+        return list(self.collection.find({}).sort("timestamp", -1))
+
+    def find_for_clustering(self, params: LogsFilterParams) -> list[dict[str, Any]]:
+        query = self._build_logs_query(params)
+        return list(self.collection.find(query).sort("timestamp", 1))
+
     def get_by_id(self, log_id: str) -> Optional[dict[str, Any]]:
         return self.collection.find_one({"_id": ObjectId(log_id)})
 
