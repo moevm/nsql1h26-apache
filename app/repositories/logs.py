@@ -65,6 +65,12 @@ class LogsRepository:
         query = self._build_logs_query(params)
         return list(self.collection.find(query).sort("timestamp", 1))
 
+    def aggregate(self, pipeline: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return list(self.collection.aggregate(pipeline, allowDiskUse=True))
+
+    def build_query(self, params: LogsFilterParams) -> dict[str, Any]:
+        return self._build_logs_query(params)
+
     def get_by_id(self, log_id: str) -> Optional[dict[str, Any]]:
         return self.collection.find_one({"_id": ObjectId(log_id)})
 
