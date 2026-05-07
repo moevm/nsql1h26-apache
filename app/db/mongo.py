@@ -26,6 +26,12 @@ def init_database() -> None:
     logs.create_index([("parsed.status", ASCENDING)], name="idx_logs_status")
     logs.create_index([("parsed.method", ASCENDING)], name="idx_logs_method")
     logs.create_index([("import_batch_id", ASCENDING)], name="idx_logs_import_batch")
+    cluster_runs = db["cluster_runs"]
+    cluster_runs.create_index([("created_at", DESCENDING)], name="idx_cluster_runs_created_at")
+    cluster_runs.create_index([("status", ASCENDING)], name="idx_cluster_runs_status")
+    clusters = db["clusters"]
+    clusters.create_index([("run_id", ASCENDING), ("size", DESCENDING)], name="idx_clusters_run_size")
+    clusters.create_index([("cluster_key", ASCENDING)], name="idx_clusters_key")
     SeedService(db).seed_if_empty()
 
 
