@@ -19,3 +19,8 @@ class Cluster(MongoIdMixin):
     stats: dict[str, Any] = Field(default_factory=dict)
     samples: list[ClusterSample] = Field(default_factory=list)
     description: str | None = None
+
+
+class ClusterListResponse(MongoBaseModel):
+    total: int
+    items: list[Cluster]
