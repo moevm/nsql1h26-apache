@@ -136,21 +136,8 @@
         <button class="btn small" id="closeExport" aria-label="Закрыть">×</button>
       </div>
       <div class="body">
-        <div class="grid2">
-          <div>
-            <div class="muted small" style="margin-bottom:6px">Что включать</div>
-            <label class="small"><input id="expLogs" type="checkbox" checked disabled/> logs</label><br/>
-            <label class="small"><input id="expRuns" type="checkbox" checked disabled/> clustering runs + clusters</label>
-          </div>
-          <div>
-            <div class="muted small" style="margin-bottom:6px">Формат</div>
-            <select class="select">
-              <option>JSON</option>
-              <option disabled>CSV (скоро)</option>
-            </select>
-            <div class="muted small" style="margin-top:10px">Экспортируется полный JSON приложения</div>
-          </div>
-        </div>
+        <div style="font-weight:800; margin-bottom:6px">Формат: JSON</div>
+        <p class="p">Будет скачан полный JSON приложения: логи, запуски кластеризации и кластеры.</p>
       </div>
       <div class="foot">
         <button class="btn" id="cancelExport">Отмена</button>
