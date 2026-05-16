@@ -18,7 +18,7 @@ class ExportService:
 
     def export_application(self) -> dict:
         return {
-            "version": "0.8",
+            "version": "1.0",
             "exported_at": datetime.now(timezone.utc).isoformat(),
             "logs": [
                 serialize_log_document(document, omit_empty_normalized=True)
