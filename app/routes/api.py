@@ -11,7 +11,7 @@ from app.db.mongo import get_database
 from app.models.cluster import Cluster, ClusterListResponse
 from app.models.cluster_run import ClusterRun, ClusterRunCreateRequest, ClusterRunListResponse
 from app.models.common import ImportMode, LogType, RawLogResponse, SuccessResponse
-from app.models.log import ImportResponse, LogDocument, LogsFilterParams, LogsListResponse
+from app.models.log import CustomStatsResponse, ImportResponse, LogCreateRequest, LogDocument, LogsFilterParams, LogsListResponse
 from app.repositories.cluster_runs import ClusterRunsRepository
 from app.repositories.clusters import ClustersRepository
 from app.repositories.logs import LogsRepository
@@ -32,7 +32,11 @@ def get_logs_filters(
     from_date: str | None = Query(default=None),
     to_date: str | None = Query(default=None),
     status: int | None = Query(default=None),
+    status_group: str | None = Query(default=None),
+    result: str | None = Query(default=None),
     method: str | None = Query(default=None),
+    ip: str | None = Query(default=None),
+    cluster: str | None = Query(default=None),
     search: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=5000),
     offset: int = Query(default=0, ge=0),
@@ -43,7 +47,11 @@ def get_logs_filters(
         from_date=from_date,
         to_date=to_date,
         status=status,
+        status_group=status_group,
+        result=result,
         method=method,
+        ip=ip,
+        cluster=cluster,
         search=search,
         limit=limit,
         offset=offset,
@@ -167,6 +175,57 @@ def list_logs(
     return {"total": total, "items": items}
 
 
+@router.post("/logs", response_model=LogDocument)
+def create_log(payload: LogCreateRequest, db: Database = Depends(get_db)):
+    service = ImportService(db)
+    try:
+        document = service.add_raw_log(payload.raw, payload.type)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return serialize_log_document(document)
+
+
+@router.get("/logs/stats/custom", response_model=CustomStatsResponse)
+def get_custom_log_stats(
+    params: Annotated[LogsFilterParams, Depends(get_logs_filters)],
+    x_axis: str = Query(default="log_type"),
+    y_axis: str = Query(default="result"),
+    db: Database = Depends(get_db),
+):
+    allowed_axes = {"log_type", "status", "status_group", "method", "endpoint_template", "level", "date", "result"}
+    if x_axis not in allowed_axes or y_axis not in allowed_axes:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Axes must be one of: {', '.join(sorted(allowed_axes))}")
+
+    repository = LogsRepository(db)
+    pipeline = [
+        {"$match": repository.build_query(params)},
+        {
+            "$project": {
+                "x": _stats_axis_expression(x_axis),
+                "y": _stats_axis_expression(y_axis),
+            }
+        },
+        {"$group": {"_id": {"x": "$x", "y": "$y"}, "count": {"$sum": 1}}},
+        {
+            "$project": {
+                "_id": 0,
+                "x": {"$ifNull": ["$_id.x", "—"]},
+                "y": {"$ifNull": ["$_id.y", "—"]},
+                "count": 1,
+            }
+        },
+        {"$sort": {"count": -1, "x": 1, "y": 1}},
+        {"$limit": 200},
+    ]
+    items = repository.aggregate(pipeline)
+    return {
+        "x_axis": x_axis,
+        "y_axis": y_axis,
+        "total": sum(int(item.get("count") or 0) for item in items),
+        "items": items,
+    }
+
+
 @router.get("/logs/{log_id}", response_model=LogDocument)
 def get_log(log_id: str, db: Database = Depends(get_db)):
     _validate_object_id(log_id, "log_id")
@@ -202,3 +261,43 @@ def _build_model(model_cls, **payload):
         return model_cls(**payload)
     except ValidationError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.errors()) from exc
+
+
+def _stats_axis_expression(axis: str):
+    endpoint = {
+        "$ifNull": [
+            "$normalized.uri_template",
+            {"$ifNull": ["$parsed.uri", {"$ifNull": ["$parsed.request_path", "—"]}]},
+        ]
+    }
+    method = {"$ifNull": ["$parsed.method", {"$ifNull": ["$parsed.request_method", "—"]}]}
+    level = {"$ifNull": ["$parsed.level", "—"]}
+    result = {
+        "$cond": [
+            {"$eq": ["$log_type", "error"]},
+            "failed",
+            {"$cond": [{"$gte": [{"$ifNull": ["$parsed.status", 0]}, 400]}, "failed", "success"]},
+        ]
+    }
+    status_group = {
+        "$switch": {
+            "branches": [
+                {"case": {"$and": [{"$gte": ["$parsed.status", 200]}, {"$lt": ["$parsed.status", 300]}]}, "then": "2xx"},
+                {"case": {"$and": [{"$gte": ["$parsed.status", 300]}, {"$lt": ["$parsed.status", 400]}]}, "then": "3xx"},
+                {"case": {"$and": [{"$gte": ["$parsed.status", 400]}, {"$lt": ["$parsed.status", 500]}]}, "then": "4xx"},
+                {"case": {"$and": [{"$gte": ["$parsed.status", 500]}, {"$lt": ["$parsed.status", 600]}]}, "then": "5xx"},
+            ],
+            "default": "—",
+        }
+    }
+    expressions = {
+        "log_type": "$log_type",
+        "status": {"$ifNull": [{"$toString": "$parsed.status"}, "—"]},
+        "status_group": status_group,
+        "method": method,
+        "endpoint_template": endpoint,
+        "level": level,
+        "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp", "timezone": "UTC", "onNull": "—"}},
+        "result": result,
+    }
+    return expressions[axis]
