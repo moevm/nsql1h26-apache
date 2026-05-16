@@ -34,6 +34,19 @@ class ImportService:
             return self._import_application_dump(upload_file, mode)
         return self._import_apache_logs(upload_file, log_type, mode)
 
+    def add_raw_log(self, raw_line: str, log_type: LogType | None = None) -> dict[str, Any]:
+        document = self._build_document(
+            raw_line=raw_line,
+            file_name="manual",
+            uploaded_at=datetime.now(timezone.utc),
+            import_batch_id=ObjectId(),
+            preferred_log_type=log_type,
+        )
+        if document is None:
+            raise ValueError("Raw line is not a valid Apache access/error log")
+        self.repository.insert_one(document)
+        return document
+
     def _import_apache_logs(
         self,
         upload_file: UploadFile,
