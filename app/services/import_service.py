@@ -94,6 +94,8 @@ class ImportService:
             raise ValueError("File does not contain valid Apache access/error log lines")
 
         if mode == ImportMode.replace:
+            self.clusters_repository.delete_all()
+            self.runs_repository.delete_all()
             self.repository.delete_all()
 
         inserted = 0
