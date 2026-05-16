@@ -75,6 +75,11 @@ class LogsListResponse(MongoBaseModel):
     items: list[LogsListItem]
 
 
+class LogCreateRequest(MongoBaseModel):
+    raw: str
+    type: LogType | None = None
+
+
 class ImportResponse(MongoBaseModel):
     success: bool = True
     total: int
@@ -92,7 +97,11 @@ class LogsFilterParams(PaginationParams):
     from_date: datetime | None = None
     to_date: datetime | None = None
     status: int | None = None
+    status_group: str | None = None
+    result: str | None = None
     method: str | None = None
+    ip: str | None = None
+    cluster: str | None = None
     search: str | None = None
 
     @field_validator("from_date", mode="before")
@@ -109,6 +118,13 @@ class LogsFilterParams(PaginationParams):
 class ExportQueryParams(PaginationParams):
     type: LogType | None = None
     limit: int = Field(default=1000, ge=1, le=10000)
+
+
+class CustomStatsResponse(MongoBaseModel):
+    x_axis: str
+    y_axis: str
+    total: int
+    items: list[dict[str, Any]]
 
 
 def _parse_date_like(value: Any, *, end_of_day: bool) -> Any:
