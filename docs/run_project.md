@@ -46,7 +46,7 @@ docker compose up -d
 Для генерации входных файлов выполнить:
 
 ```bash
-docker compose exec -T app python -m scripts.generate_logs --output-dir /app/generated_logs --access-count 300 --error-count 80 --days 10 --seed 42
+docker compose exec -T app python scripts/generate_logs.py --output-dir /app/generated_logs --access-count 300 --error-count 80 --days 10 --seed 42
 ```
 
 Команда создаст файлы:
