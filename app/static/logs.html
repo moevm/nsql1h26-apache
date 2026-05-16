@@ -31,7 +31,17 @@
           
 
 <div class="card">
-  <h1 class="h1">Логи</h1>
+  <div class="row" style="justify-content:space-between; align-items:flex-start">
+    <div>
+      <h1 class="h1">Логи</h1>
+      <p class="p">Просмотр, фильтрация и постраничная загрузка Apache access/error логов.</p>
+    </div>
+    <div class="row">
+      <button class="btn" id="openImport2" type="button">Импорт</button>
+      <button class="btn" id="openManualLog" type="button">Добавить raw</button>
+      <button class="btn" id="openExport2" type="button">Экспорт</button>
+    </div>
+  </div>
 
   <div class="grid2" style="margin-top:10px">
     <div>
@@ -104,12 +114,89 @@
   </div>
 </div>
 
+<div class="card" style="margin-top:12px">
+  <div class="row" style="justify-content:space-between; align-items:flex-start">
+    <div>
+      <div style="font-weight:900; font-size:18px">Кастомная статистика</div>
+    </div>
+    <button class="btn primary" id="statsRefresh" type="button">Построить</button>
+  </div>
+
+  <div class="grid2" style="margin-top:12px">
+    <div>
+      <div class="muted small" style="margin-bottom:6px">Ось X</div>
+      <select class="select" id="statsXAxis">
+        <option value="log_type">Тип лога</option>
+        <option value="status_group">Группа статуса</option>
+        <option value="status">Статус</option>
+        <option value="method">Метод</option>
+        <option value="endpoint_template">Endpoint</option>
+        <option value="level">Уровень error</option>
+        <option value="date">Дата</option>
+        <option value="result">Результат</option>
+      </select>
+    </div>
+    <div>
+      <div class="muted small" style="margin-bottom:6px">Ось Y</div>
+      <select class="select" id="statsYAxis">
+        <option value="result">Результат</option>
+        <option value="log_type">Тип лога</option>
+        <option value="status_group">Группа статуса</option>
+        <option value="status">Статус</option>
+        <option value="method">Метод</option>
+        <option value="level">Уровень error</option>
+        <option value="date">Дата</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="canvasWrap" style="margin-top:12px">
+    <canvas id="customStatsChart" style="width:100%; height:260px"></canvas>
+  </div>
+  <div style="margin-top:12px">
+    <table class="table">
+      <thead>
+        <tr><th id="statsXHead">X</th><th id="statsYHead">Y</th><th>count</th></tr>
+      </thead>
+      <tbody id="customStatsTbody"></tbody>
+    </table>
+  </div>
+</div>
+
         </main>
       </div>
     </div>
   </div>
 
-  
+	  
+  <!-- Manual log modal -->
+  <div class="modalBack" id="manualLogModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Добавить raw log">
+      <div class="head">
+        <div style="font-weight:800">Добавить raw log</div>
+        <button class="btn small" id="closeManualLog" aria-label="Закрыть">×</button>
+      </div>
+      <div class="body">
+        <div>
+          <div class="muted small" style="margin-bottom:6px">Тип</div>
+          <select class="select" id="manualLogType">
+            <option value="">Определить автоматически</option>
+            <option value="access">access</option>
+            <option value="error">error</option>
+          </select>
+        </div>
+        <div style="margin-top:12px">
+          <div class="muted small" style="margin-bottom:6px">Raw строка Apache log</div>
+          <textarea class="input" id="manualLogRaw" rows="5" placeholder='127.0.0.1 - - [16/May/2026:12:00:00 +0000] "GET /api/users/42 HTTP/1.1" 200 512 "-" "curl/8.0"'></textarea>
+        </div>
+      </div>
+      <div class="foot">
+        <button class="btn" id="cancelManualLog">Отмена</button>
+        <button class="btn primary" id="saveManualLog" type="button">Добавить</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Import modal -->
   <div class="modalBack" id="importModal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-label="Импорт">
