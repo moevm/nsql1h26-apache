@@ -141,7 +141,11 @@ async function fetchLogsFromApi(filters = {}) {
   if (filters.type && filters.type !== "all") params.set("type", filters.type);
   if (filters.search) params.set("search", filters.search);
   if (filters.status != null && filters.status !== "") params.set("status", String(filters.status));
+  if (filters.status_group && filters.status_group !== "all") params.set("status_group", filters.status_group);
+  if (filters.result && filters.result !== "all") params.set("result", filters.result);
   if (filters.method) params.set("method", filters.method);
+  if (filters.ip) params.set("ip", filters.ip);
+  if (filters.cluster) params.set("cluster", filters.cluster);
   if (filters.from_date) params.set("from_date", filters.from_date);
   if (filters.to_date) params.set("to_date", filters.to_date);
   params.set("limit", String(filters.limit ?? 200));
@@ -161,6 +165,32 @@ async function fetchLogDetails(logId) {
 
 async function fetchRawLog(logId) {
   return apiFetch(`/logs/${encodeURIComponent(logId)}/raw`);
+}
+
+async function createLogFromRaw(payload) {
+  return apiFetch("/logs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+async function fetchCustomStats(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.type && filters.type !== "all") params.set("type", filters.type);
+  if (filters.search) params.set("search", filters.search);
+  if (filters.status_group && filters.status_group !== "all") params.set("status_group", filters.status_group);
+  if (filters.result && filters.result !== "all") params.set("result", filters.result);
+  if (filters.method) params.set("method", filters.method);
+  if (filters.ip) params.set("ip", filters.ip);
+  if (filters.cluster) params.set("cluster", filters.cluster);
+  if (filters.from_date) params.set("from_date", filters.from_date);
+  if (filters.to_date) params.set("to_date", filters.to_date);
+  if (filters.x_axis) params.set("x_axis", filters.x_axis);
+  if (filters.y_axis) params.set("y_axis", filters.y_axis);
+  params.set("limit", "1");
+  params.set("offset", "0");
+  return apiFetch(`/logs/stats/custom?${params.toString()}`);
 }
 
 async function importLogs(file, mode) {
@@ -329,8 +359,11 @@ function bindGlobal() {
   $$("#closeExport, #cancelExport").forEach((btn) =>
     btn?.addEventListener("click", () => closeModal("#exportModal"))
   );
+  $$("#closeManualLog, #cancelManualLog").forEach((btn) =>
+    btn?.addEventListener("click", () => closeModal("#manualLogModal"))
+  );
 
-  ["#importModal", "#exportModal", "#rawModal"].forEach((id) => {
+  ["#importModal", "#exportModal", "#rawModal", "#manualLogModal"].forEach((id) => {
     const back = $(id);
     if (!back) return;
     back.addEventListener("click", (e) => {
@@ -417,7 +450,7 @@ function initLogsPage() {
   };
 
   let currentLogs = [];
-  let currentFilteredLogs = [];
+  let totalLogs = 0;
   let currentPage = 1;
   let requestId = 0;
 
@@ -434,6 +467,11 @@ function initLogsPage() {
   const toDateInput = $("#toDateInput");
   const resetBtn = $("#resetFilters");
   const searchInput = $("#searchInput");
+  const statsXAxis = $("#statsXAxis");
+  const statsYAxis = $("#statsYAxis");
+  const statsRefresh = $("#statsRefresh");
+  const statsBody = $("#customStatsTbody");
+  const statsChart = $("#customStatsChart");
 
   function syncControlsFromState() {
     if (typeSelect) typeSelect.value = activeFilters.type || "all";
@@ -657,23 +695,18 @@ function initLogsPage() {
       total: totalItems,
       page: currentPage,
       pageSize,
-      onChange: (nextPage) => {
+      onChange: async (nextPage) => {
         currentPage = nextPage;
-        renderTable(currentFilteredLogs);
+        await render();
       },
     });
   }
 
-  function renderTable(list) {
+  function renderTable(list, totalItems) {
     if (!tableBody) return;
     tableBody.innerHTML = "";
 
-    const totalPages = Math.max(1, Math.ceil(list.length / pageSize));
-    currentPage = Math.min(Math.max(currentPage, 1), totalPages);
-    const startIndex = (currentPage - 1) * pageSize;
-    const pageItems = list.slice(startIndex, startIndex + pageSize);
-
-    pageItems.forEach((l, idx) => {
+    list.forEach((l, idx) => {
       const tr = document.createElement("tr");
       tr.dataset.logId = l.id;
       tr.innerHTML = `
@@ -701,25 +734,34 @@ function initLogsPage() {
       if (detail) detail.innerHTML = `<div class="muted">Выберите запись</div>`;
     }
 
-    renderPagination(list.length);
+    renderPagination(totalItems);
   }
 
-  async function loadFromServer() {
-    const currentRequest = ++requestId;
-    const serverFilters = {
+  function buildServerFilters(extra = {}) {
+    return {
       type: activeFilters.type !== "all" ? activeFilters.type : undefined,
       search: activeFilters.q || undefined,
       from_date: datetimeLocalToIso(activeFilters.from_date),
       to_date: datetimeLocalToIso(activeFilters.to_date),
-      limit: 5000,
-      offset: 0,
+      result: activeFilters.result !== "all" ? activeFilters.result : undefined,
+      status_group: activeFilters.statusGroup !== "all" ? activeFilters.statusGroup : undefined,
+      ip: activeFilters.ip || undefined,
+      cluster: activeFilters.cluster || undefined,
+      limit: pageSize,
+      offset: (currentPage - 1) * pageSize,
+      ...extra,
     };
+  }
+
+  async function loadFromServer() {
+    const currentRequest = ++requestId;
+    const serverFilters = buildServerFilters();
 
     const result = await fetchLogsFromApi(serverFilters);
     if (currentRequest !== requestId) return;
 
     currentLogs = result.items;
-    currentFilteredLogs = currentLogs.filter(matches);
+    totalLogs = Number(result.total || 0);
   }
 
   async function render() {
@@ -732,8 +774,12 @@ function initLogsPage() {
 
     try {
       await loadFromServer();
-      currentPage = Math.min(currentPage, Math.max(1, Math.ceil(currentFilteredLogs.length / pageSize)));
-      renderTable(currentFilteredLogs);
+      const totalPages = Math.max(1, Math.ceil(totalLogs / pageSize));
+      if (currentPage > totalPages) {
+        currentPage = totalPages;
+        await loadFromServer();
+      }
+      renderTable(currentLogs, totalLogs);
     } catch (error) {
       if (tableBody) {
         tableBody.innerHTML = `<tr><td colspan="3" class="muted">Ошибка загрузки: ${escapeHTML(error.message)}</td></tr>`;
@@ -746,10 +792,129 @@ function initLogsPage() {
 
   window.__refreshLogsPage = render;
   window.__exportCurrentLogs = async () => {
-    const payload = currentFilteredLogs.map((log) => log.original);
+    const payload = currentLogs.map((log) => log.original);
     downloadJson("apache_logs_export.json", payload);
-    toast("Экспорт логов сформирован");
+    toast("Экспорт текущей страницы логов сформирован");
   };
+
+  function renderStatsTable(items, xAxis, yAxis) {
+    if ($("#statsXHead")) $("#statsXHead").textContent = xAxis;
+    if ($("#statsYHead")) $("#statsYHead").textContent = yAxis;
+    if (!statsBody) return;
+    statsBody.innerHTML = "";
+
+    items.slice(0, 25).forEach((item) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHTML(item.x ?? "—")}</td>
+        <td>${escapeHTML(item.y ?? "—")}</td>
+        <td>${escapeHTML(String(item.count ?? 0))}</td>
+      `;
+      statsBody.appendChild(tr);
+    });
+
+    if (items.length === 0) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="3" class="muted">Нет данных под фильтры</td>`;
+      statsBody.appendChild(tr);
+    }
+  }
+
+  function drawStatsChart(items) {
+    if (!statsChart) return;
+    const ctx = statsChart.getContext("2d");
+    const top = items.slice(0, 12);
+    const w = (statsChart.width = statsChart.clientWidth * devicePixelRatio);
+    const h = (statsChart.height = 260 * devicePixelRatio);
+    ctx.clearRect(0, 0, w, h);
+
+    if (!top.length) {
+      ctx.fillStyle = "rgba(107,114,128,.9)";
+      ctx.font = `${13 * devicePixelRatio}px system-ui, -apple-system, Segoe UI, sans-serif`;
+      ctx.fillText("Нет данных для диаграммы", 16 * devicePixelRatio, 28 * devicePixelRatio);
+      return;
+    }
+
+    const padding = 18 * devicePixelRatio;
+    const labelWidth = Math.min(360 * devicePixelRatio, w * 0.46);
+    const rowHeight = Math.max(16 * devicePixelRatio, (h - padding * 2) / top.length);
+    const maxCount = Math.max(1, ...top.map((item) => Number(item.count || 0)));
+    const barMaxWidth = Math.max(80 * devicePixelRatio, w - labelWidth - padding * 3);
+
+    ctx.font = `${12 * devicePixelRatio}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    ctx.textBaseline = "middle";
+
+    top.forEach((item, index) => {
+      const y = padding + index * rowHeight + rowHeight / 2;
+      const label = `${item.x ?? "—"} / ${item.y ?? "—"}`;
+      const barWidth = barMaxWidth * (Number(item.count || 0) / maxCount);
+
+      ctx.fillStyle = "rgba(17,24,39,.72)";
+      ctx.textAlign = "left";
+      ctx.fillText(label.length > 42 ? `${label.slice(0, 39)}...` : label, padding, y);
+
+      ctx.fillStyle = "rgba(43,102,246,.55)";
+      ctx.fillRect(labelWidth, y - rowHeight * 0.28, barWidth, rowHeight * 0.56);
+
+      ctx.fillStyle = "rgba(17,24,39,.9)";
+      ctx.fillText(String(item.count || 0), labelWidth + barWidth + 8 * devicePixelRatio, y);
+    });
+  }
+
+  async function refreshCustomStats() {
+    const xAxis = statsXAxis?.value || "log_type";
+    const yAxis = statsYAxis?.value || "result";
+    if (statsBody) statsBody.innerHTML = `<tr><td colspan="3" class="muted">Загрузка...</td></tr>`;
+
+    try {
+      const payload = await fetchCustomStats(buildServerFilters({ x_axis: xAxis, y_axis: yAxis }));
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      renderStatsTable(items, xAxis, yAxis);
+      drawStatsChart(items);
+    } catch (error) {
+      if (statsBody) statsBody.innerHTML = `<tr><td colspan="3" class="muted">Ошибка загрузки: ${escapeHTML(error.message)}</td></tr>`;
+      drawStatsChart([]);
+      toast(`Ошибка статистики: ${error.message}`);
+    }
+  }
+
+  $("#openManualLog")?.addEventListener("click", () => openModal("#manualLogModal"));
+  $("#saveManualLog")?.addEventListener("click", async () => {
+    const raw = ($("#manualLogRaw")?.value || "").trim();
+    const type = $("#manualLogType")?.value || "";
+    if (!raw) {
+      toast("Введите raw строку лога");
+      return;
+    }
+
+    const btn = $("#saveManualLog");
+    const prevText = btn?.textContent || "Добавить";
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Добавление...";
+    }
+
+    try {
+      await createLogFromRaw({ raw, type: type || null });
+      if ($("#manualLogRaw")) $("#manualLogRaw").value = "";
+      closeModal("#manualLogModal");
+      currentPage = 1;
+      await render();
+      await refreshCustomStats();
+      toast("Raw log добавлен");
+    } catch (error) {
+      toast(`Ошибка добавления: ${error.message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = prevText;
+      }
+    }
+  });
+
+  statsRefresh?.addEventListener("click", refreshCustomStats);
+  statsXAxis?.addEventListener("change", refreshCustomStats);
+  statsYAxis?.addEventListener("change", refreshCustomStats);
 
   typeSelect?.addEventListener("change", async (e) => {
     activeFilters.type = e.target.value;
@@ -812,6 +977,7 @@ function initLogsPage() {
   });
 
   render();
+  refreshCustomStats();
 }
 
 function normalizeRun(raw) {
